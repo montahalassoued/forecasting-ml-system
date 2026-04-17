@@ -83,7 +83,7 @@ flowchart LR
    M --> J
 ```
 
-Static architecture asset: `architecture/ecommerce_ai_platform_architecture.svg`
+Static architecture asset: `C:\Users\MONTAHA\Desktop\Ai\forecasting-ml-system\architecture\ecommerce_ai_platform_architecture.svg`
 
 ## Features
 
