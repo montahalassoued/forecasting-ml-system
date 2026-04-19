@@ -1,0 +1,69 @@
+
+# CORE DATA SCIENCE
+
+numpy
+pandas
+scikit-learn
+scipy
+
+
+# VISUALIZATION
+
+matplotlib
+seaborn
+plotly
+
+
+# TIME SERIES / ML
+
+xgboost
+lightgbm
+statsmodels
+
+# DEEP LEARNING
+
+torch
+torchvision
+torchaudio
+
+
+# TIME SERIES DL (OPTION VERY STRONG)
+
+darts
+
+# ANOMALY DETECTION
+
+pyod
+
+# EXPLAINABILITY
+
+shap
+
+# API BACKEND
+
+fastapi
+uvicorn
+pydantic
+
+# MLOPS
+
+mlflow
+dvc
+
+
+# DATA PIPELINE (OPTIONAL ADVANCED)
+
+prefect
+
+# UTILITIES
+
+joblib
+tqdm
+python-dotenv
+
+# DASHBOARD
+streamlit
+
+# DATABASE (OPTIONAL)
+
+sqlalchemy
