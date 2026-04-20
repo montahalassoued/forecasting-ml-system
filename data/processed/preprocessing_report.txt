@@ -1,0 +1,39 @@
+
+PREPROCESSING SUMMARY REPORT
+Generated: 2026-04-20 22:30:39
+
+DATA SPLITS:
+  Train:       2,918,916 rows | 2013-01-01 to 2017-06-30
+  Validation:     53,460 rows | 2017-07-01 to 2017-07-30
+  Test:           28,512 rows | 2017-07-31 to 2017-08-15
+  Full:        3,000,888 rows | 2013-01-01 to 2017-08-15
+
+FEATURES (23 total):
+  date, store_nbr, family, sales, onpromotion, city, state, type_x, cluster, dcoilwtico, transactions, type_y, locale, locale_name, transferred, day_of_week, month, quarter, is_weekend, is_month_start, is_month_end, has_promotion, is_holiday
+
+TARGET VARIABLE (sales):
+  Min/Max:   0.00 / 124717.00
+  Mean/Std:  357.78 / 1102.00
+  Median:    11.00
+
+CATEGORICAL FEATURES:
+  Stores:      54 unique
+  Families:    33 unique
+  Store Types: 5 unique
+
+DATA QUALITY:
+  Missing values: 0
+  Duplicates: 0
+  Date continuity: OK
+
+OUTPUT FILES:
+  - data/processed/train.parquet
+  - data/processed/val.parquet
+  - data/processed/test.parquet
+  - data/processed/full_featured.parquet
+
+READY FOR MODELING:
+  [OK] Baseline models (Naive, Ridge, RandomForest, XGBoost)
+  [OK] Deep learning models (LSTM, Transformer)
+  [OK] Ensemble methods
+  [OK] Anomaly detection
