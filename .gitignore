@@ -60,3 +60,5 @@ logs/
 # Temporary
 *.tmp
 *.bak
+
+\rapport.md
