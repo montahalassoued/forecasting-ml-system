@@ -63,7 +63,32 @@ class RetailPreprocessor:
         oil_source = train_frame["dcoilwtico"].dropna()
         self.oil_fill_value_ = float(oil_source.median()) if not oil_source.empty else 0.0
         return self
+    
+    def _add_time_features(self, frame: pd.DataFrame) -> pd.DataFrame:
+        # On s'assure que tout est bien trié pour que les décalages (shift) soient corrects
+        # On trie par store/family/date pour que le passé d'un produit ne bave pas sur un autre
+        frame = frame.sort_values(["store_nbr", "family", "date"])
 
+        # --- 1. MÉMOIRE (Lags) ---
+        group = frame.groupby(["store_nbr", "family"])["sales"]
+        frame["lag_1"] = group.shift(1)
+        frame["lag_7"] = group.shift(7)
+        frame["roll_mean_7"] = group.shift(1).rolling(window=7).mean()
+
+        # --- 2. PÉTROLE (Oil Trend) ---
+        if "dcoilwtico" in frame.columns:
+            # Tendance sur 7 jours pour lisser les variations boursières
+            frame["oil_trend_7d"] = frame["dcoilwtico"].rolling(window=7).mean()
+
+        # --- 3. JOUR DE PAIE (Payday) ---
+        # Le 15 et le dernier jour du mois en Équateur
+        day = frame["date"].dt.day
+        is_month_end = frame["date"].dt.is_month_end
+        frame["is_payday"] = ((day == 15) | is_month_end).astype("int8")
+
+        # On remplit les nouveaux NaNs créés par les lags au début des séries
+        return frame.fillna(0)
+    
     def transform(self, frame: pd.DataFrame) -> pd.DataFrame:
         if self.sales_caps_ is None or self.transaction_caps_ is None:
             raise RuntimeError("RetailPreprocessor.fit must be called before transform.")
@@ -75,6 +100,10 @@ class RetailPreprocessor:
         processed = self._fill_oil(processed)
         processed = self._fill_transactions(processed)
         processed = self._cap_target_sales(processed)
+        
+        # --- AJOUT ICI : On ajoute les features temporelles APRES le nettoyage ---
+        processed = self._add_time_features(processed)
+        # ------------------------------------------------------------------------
 
         if "onpromotion" in processed.columns:
             processed["onpromotion"] = (
@@ -85,6 +114,7 @@ class RetailPreprocessor:
             )
 
         return processed
+
 
     def fit_transform(self, train_frame: pd.DataFrame) -> pd.DataFrame:
         return self.fit(train_frame).transform(train_frame)
