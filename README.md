@@ -32,15 +32,24 @@ The architecture supports both experimentation (notebooks) and operational workf
 ### End-to-End Data Flow
 
 1. Raw data from commerce sources (orders, revenue, traffic, promos) lands in `data/raw`.
-2. Processing and feature engineering transform it into curated datasets in `data/processed`.
-3. Model training pipelines use processed datasets to train:
+2. Preprocessing pipeline (`preprocess_pipeline.py`) orchestrates cleaning and feature engineering:
+   - Merges stores, oil prices, transactions, and holiday events
+   - Handles missing values with intelligent imputation strategies
+   - Removes duplicates and validates data quality
+   - Generates 23 engineered features (temporal, lag-based, external signals)
+3. Curated datasets are saved to `data/processed/` as Parquet files:
+   - `train.parquet` (2.9M rows, 97.3%) - 2013-01-01 to 2017-06-30
+   - `val.parquet` (53K rows, 1.8%) - 2017-07-01 to 2017-07-30
+   - `test.parquet` (28K rows, 1.0%) - 2017-07-31 to 2017-08-15
+   - `full_featured.parquet` (3.0M rows) - Full dataset with all engineered features
+4. Model training pipelines use processed datasets to train:
    - Forecasting models (baseline ML, LSTM, Transformer)
    - Anomaly detection models (autoencoder/statistical rules)
-4. Evaluation computes forecasting and anomaly metrics, and explainability artifacts.
-5. Best model artifacts are registered and loaded by the API service.
-6. API exposes forecast and anomaly endpoints for downstream products.
-7. Dashboard consumes API outputs for business users.
-8. Scheduled retraining pipeline reprocesses data, retrains models, validates quality, and redeploys.
+5. Evaluation computes forecasting and anomaly metrics, and explainability artifacts.
+6. Best model artifacts are registered and loaded by the API service.
+7. API exposes forecast and anomaly endpoints for downstream products.
+8. Dashboard consumes API outputs for business users.
+9. Scheduled retraining pipeline reprocesses data, retrains models, validates quality, and redeploys.
 
 ### Component Communication
 
@@ -89,6 +98,8 @@ Static architecture asset:
 
 ## Features
 
+- **Production-grade preprocessing pipeline**: Intelligent missing value handling, duplicate removal, and chronological train/val/test splits with zero data leakage
+- **Advanced time-series feature engineering**: Lag features (1-day, 7-day), rolling averages, oil price trends, and payday indicators for retail patterns
 - Multi-model forecasting pipeline for time-series demand prediction
 - Anomaly detection for suspicious sales behavior and trend breaks
 - API-first serving layer for model inference and integrations
@@ -110,7 +121,18 @@ Static architecture asset:
 ai-ecommerce-intelligence/
 ├── data/
 │   ├── raw/                 # Raw source data (gitignored, DVC-tracked)
+│   │   ├── train.csv        # Historical sales transactions
+│   │   ├── stores.csv       # Store metadata and locations
+│   │   ├── oil.csv          # Daily oil prices (economic indicator)
+│   │   ├── holidays_events.csv  # National/regional holiday calendar
+│   │   └── transactions.csv # Daily store transaction counts
 │   └── processed/           # Clean, feature-ready datasets
+│       ├── train.parquet    # Training split (2.9M rows)
+│       ├── val.parquet      # Validation split (53K rows)
+│       ├── test.parquet     # Test split (28K rows)
+│       ├── full_featured.parquet  # Complete dataset with 23 features
+│       └── preprocessing_report.txt  # Quality report and feature summary
+├── preprocess_pipeline.py   # Main preprocessing orchestration script
 ├── notebooks/
 │   ├── 01_eda.ipynb         # Data exploration and quality checks
 │   ├── 02_baseline_ml.ipynb # Baseline forecasting experiments
@@ -120,6 +142,7 @@ ai-ecommerce-intelligence/
 ├── src/
 │   ├── data/
 │   │   ├── loader.py        # Data loading and ingestion logic
+│   │   ├── preprocess.py    # RetailPreprocessor class with fit/transform pipeline
 │   │   └── features.py      # Feature engineering transformations
 │   ├── models/
 │   │   ├── lstm.py          # LSTM model definitions/utilities
@@ -160,6 +183,38 @@ ai-ecommerce-intelligence/
 - `tests`: quality and regression safeguards
 - `.github/workflows`: CI automation and quality gates
 
+## Preprocessing Pipeline
+
+### Overview
+
+The preprocessing pipeline (`preprocess_pipeline.py`) transforms raw e-commerce transaction data into production-ready datasets with:
+
+- **Zero missing values**: Intelligent imputation strategies (oil prices forward-filled, transactions store-median-filled, holidays zero-filled)
+- **Chronological train/val/test split**: 97.3% train, 1.8% val, 1.0% test (2013-2017) with zero data leakage
+- **23 engineered features** including:
+  - **Temporal**: day_of_week, month, quarter, is_weekend, is_month_start, is_month_end
+  - **Lag-based memory**: lag_1, lag_7 (1 and 7-day sales lags), roll_mean_7 (7-day rolling average)
+  - **Oil price trend**: oil_trend_7d (7-day smoothed Brent crude)
+  - **Payday indicator**: is_payday (15th and last day of month—key retail pattern in Ecuador)
+  - **Store & product**: store_nbr, family, city, state, cluster, type
+  - **Sales metrics**: sales (target), onpromotion, has_promotion, transactions
+  - **Holiday calendar**: type, locale, transferred, is_holiday
+
+### Generated Datasets
+
+- **train.parquet** (2.9M rows): 2013-01-01 to 2017-06-30 — training data for all model types
+- **val.parquet** (53K rows): 2017-07-01 to 2017-07-30 — validation/tuning data
+- **test.parquet** (28K rows): 2017-07-31 to 2017-08-15 — final evaluation data
+- **full_featured.parquet** (3.0M rows): complete dataset with all 23 features for exploratory analysis
+
+### Running Preprocessing
+
+```bash
+python preprocess_pipeline.py
+```
+
+Output: `data/processed/` with parquet files and `preprocessing_report.txt` quality summary.
+
 ## Installation
 
 ### 1. Clone Repository
@@ -185,7 +240,23 @@ dvc pull
 
 ## Run The Project
 
-### Run Training Pipeline
+### Step 1: Preprocess Raw Data (Generate Model-Ready Datasets)
+
+```bash
+python preprocess_pipeline.py
+```
+
+This step:
+
+- Loads raw data from `data/raw/`
+- Cleans missing values and removes duplicates
+- Engineers 23 features (lags, trends, temporal indicators, holiday calendar)
+- Generates chronologically-split parquet files in `data/processed/`
+- Outputs quality report to `data/processed/preprocessing_report.txt`
+
+**Output**: Train/val/test parquet files ready for model training.
+
+### Step 2: Run Training Pipeline
 
 ```bash
 python -m src.training.train
@@ -197,26 +268,26 @@ python -m src.training.train
 uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### Run Dashboard
+### Step 3: Run Dashboard
 
 ```bash
 python dashboard/app.py
 ```
 
-### Run Retraining Job
+### Step 4: Run Retraining Job
 
 ```bash
 python pipelines/retrain.py
+```
+
+### Run All Services With Docker Compose
+
+```bash
+docker-compose up --build
 ```
 
 ### Run Tests
 
 ```bash
 pytest -q
-```
-
-### Run With Docker Compose
-
-```bash
-docker-compose up --build
 ```
